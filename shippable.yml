@@ -1,0 +1,52 @@
+# vim: et sr sw=2 ts=2 smartindent:
+# +++ A word about fixtures and docker cfg +++
+# tl;dr
+# ciexec build container mounted on host network.
+# This way it can talk to any exposed ports of fixtures.
+#
+# We create an isolated custom network 
+# for other container in the ci phase so they might
+# communicate with each other with out port conflicts.
+#
+# But it is not possible to mount the ciexec build container
+# on any network but host or the default bridge.
+#
+# However if the ciexec container is on the host network it can access VIA DOCKER IP
+# of the destination container regardless of custom or default bridge network.
+
+# CAVEATS WHEN RUNNING FOR LOCAL ON MacOS
+# More reliable to expose sshd on host network.
+# Then access via localhost and ignore known_hosts and host key checking.
+# ... or deal with all kind of ssh client failures
+language: none
+
+branches:
+  only:
+    - master
+
+env:
+  global:
+    - PROJ="ssh_reverse_proxy_test"
+    - IMG_CURL="byrnedo/alpine-curl:0.1.8" 
+    - IMG_WEB_SERVER="nginxdemos/hello:plain-text"
+    - IMG_SSHD_SERVER="jinal/sshd:0.0.1"
+    - CON_WEB_SERVER_PREFIX="fixed_http_endpoint"
+    - CON_SSHD_SERVER_PREFIX="fixed_sshd_endpoint"
+    - FIXTURES_NET="ssh_reverse_proxy_test_fixtures"
+
+build:
+
+  pre_ci_boot:
+    options: "--net=host --privileged=true --pid=host"
+
+  ci:
+    - chmod 0600 ./id_rsa
+    - bash ./setup_fixtures.sh
+
+integrations:
+  hub:
+    - integrationName: dockerhub
+      type: dockerRegistryLogin
+      branches:
+        only:
+          - master
